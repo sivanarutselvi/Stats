@@ -1,0 +1,125 @@
+---
+title: "SleepHealth"
+author: "Siva"
+date: "2023-10-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Sleep Health and Lifestyle Data Analysis
+
+### Data Overview
+
+The sleep health and lifestyle dataset is imported from Kaggle 
+https://www.kaggle.com/datasets/uom190346a/sleep-health-and-lifestyle-dataset
+The Sleep Health and Lifestyle Dataset 374 records of 13 variables, that are associated with sleep and daily routines. It observes details such as gender, age, occupation, sleep duration, quality of sleep, physical activity level, stress levels, BMI category, blood pressure, heart rate, daily steps, and sleep disorders if any.
+
+## Including libraries 
+
+```{r libraries}
+library(readr)
+library(tidyverse)
+library(ggplot2)
+library(corrplot)
+library(leaps)
+library(MASS)
+library(readxl)
+```
+
+## Import the data
+
+```{r dataimport}
+shls <- read_xlsx("/Users/siva/Documents/Sleep_HLS/Data/shls.xlsx")
+head(shls)
+names(shls)
+```
+## Summary of data
+
+```{r summary}
+summary(shls)
+```
+
+## Renaming columns
+```{r rename}
+colnames(shls)[5] ="Sleep_Duration"
+colnames(shls)[6] ="Quality_of_Sleep"
+colnames(shls)[7] ="Phys_Activity"
+colnames(shls)[8] ="Stress_Level"
+colnames(shls)[9] ="BMI_type"
+colnames(shls)[10] ="BP"
+colnames(shls)[11] ="Heart_rate"
+colnames(shls)[12] ="Daily_steps"
+colnames(shls)[13] ="Sleep_Disorder"
+```
+
+## Bar chart of Quality of sleep
+
+```{r BPQS,echo=FALSE }
+ggplot(shls, aes(x=(Quality_of_Sleep)))+ geom_bar(fill="#fde0dd")+ theme_bw()+xlab("Quality of Sleep ")+ylab("Count of People")+ggtitle("Distribution of Quality of Sleep Variable")
+```
+
+## Catagorical Variables 
+```{r CV }
+table(shls$Gender)
+table(shls$Occupation)
+table(shls$BMI_type)
+table(shls$Sleep_Disorder)
+```
+
+## Correlation Matrix 
+```{r CM }
+num_cols = subset(shls,select=c(3,5,6,7,8,11,12))
+res = round(cor(num_cols),2)
+corrplot(res, method = 'square', order = 'FPC', type = 'lower', diag = FALSE,col = COL2('PiYG'))
+```
+
+## Linear Regression Analysis
+```{r LRA }
+qs = lm(Quality_of_Sleep ~ Age+Sleep_Duration+Phys_Activity+Stress_Level+Heart_rate+Daily_steps, data=shls)
+
+summary(qs)
+```
+
+Keeping quality of sleep variable as the response and other numerical columns such as age, sleep duration, physical activity, stress level, heart rate and daily steps as features multiple linear regression model was built.
+On observing the summary of this model physical activity variable is found to be statistically insignificant. Age, sleep duration and daily steps positively impacts quality of sleep, while stress level and heart rate impacts quality of sleep negatively. So let's drop physical activity in the next model.
+
+```{r LRA_PA }
+qs_pa = update(qs,.~.-Phys_Activity)
+summary(qs_pa)
+```
+## Finding the best model
+```{r LRA_IC}
+library(leaps)
+reg = regsubsets(Quality_of_Sleep ~ Age+Sleep_Duration+ Phys_Activity+Stress_Level+Heart_rate+Daily_steps, data=shls)
+n=dim(shls)[1]
+rs = summary(reg)
+rs$which
+```
+
+## AIC, BIC and Adjusted R Squared Plot
+```{r LRA_AIC}
+AIC = 2*(2:7)+n*log(rs$rss/n)
+plot(1:6,AIC,xlab='Number of Predictors',ylab='AIC', main='AIC (Vs) Number of Predictors')
+
+BIC = log(n)*(2:7)+n*log(rs$rss/n)
+plot(1:6,BIC,xlab='Number of Predictors',ylab='BIC', main='BIC (Vs) Number of Predictors')
+
+plot(1:6,rs$adjr2,xlab='Number of Predictors',ylab='Adj R^2', main='Adj R^2 (Vs) Number of Predictors')
+
+```
+
+According to AIC the best model is 5 predictors without physical activity, and as per BIC it agrees with AIC. Adjusted R squared plot shows maximum value for the 5 predictor model. So the backward selection and information criterion method both agrees to the 5 predictors model.So the equation of quality of sleep goes as
+quality of sleep = 5.289+0.01*Age+0.64*Sleep duration-0.3*Stress level-0.029*Heart rate+0.0008*Daily Steps
+
+
+
+
+
+
+
+
+
+
